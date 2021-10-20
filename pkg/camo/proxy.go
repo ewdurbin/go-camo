@@ -248,6 +248,15 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	h := w.Header()
+	// set default security headers
+	h.Set("cache-control", "no-cache, no-store, private, must-revalidate")
+	h.Set("x-frame-options", "deny")
+	h.Set("x-xss-protection", "1; mode=block")
+	h.Set("x-content-type-options", "nosniff")
+	h.Set("content-security-policy", "default-src 'none'; img-src data:; style-src 'unsafe-inline'")
+	h.Set("strict-transport-security", "max-age=31536000; includeSubDomains")
+
 	var responseContentType string
 	switch resp.StatusCode {
 	case 200, 206:
@@ -258,6 +267,8 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if mlog.HasDebug() {
 				mlog.Debug("Empty content-type returned")
 			}
+			h.Set("camo-error-message", "Empty content-type returned")
+			h.Set("expires", "0")
 			http.Error(w, "Empty content-type returned", http.StatusBadRequest)
 			return
 		}
@@ -273,6 +284,8 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if mlog.HasDebug() {
 				mlog.Debugm("Unsupported content-type returned", mlog.Map{"type": u})
 			}
+			h.Set("camo-error-message", fmt.Sprintf("Unsupported content-type returned (%s)", contentType))
+			h.Set("expires", "0")
 			http.Error(w, "Unsupported content-type returned", http.StatusBadRequest)
 			return
 		}
@@ -289,15 +302,21 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if mlog.HasDebug() {
 				mlog.Debug("Unsupported content-type returned")
 			}
+			h.Set("expires", "0")
+			h.Set("camo-error-message", fmt.Sprintf("Unsupported content-type returned (%s)", mediatype))
 			http.Error(w, "Unsupported content-type returned", http.StatusBadRequest)
 			return
 		}
 	case 300:
+		h.Set("expires", "0")
+		h.Set("camo-error-message", "Multiple choices not supported")
 		http.Error(w, "Multiple choices not supported", http.StatusNotFound)
 		return
 	case 301, 302, 303, 307:
 		// if we get a redirect here, we either disabled following,
 		// or followed until max depth and still got one (redirect loop)
+		h.Set("camo-error-message", "Exceeded max depth")
+		h.Set("expires", "0")
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
 	case 304:
@@ -306,21 +325,27 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(304)
 		return
 	case 404:
+		h.Set("camo-error-message", "Not Found")
+		h.Set("expires", "0")
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
 	case 500, 502, 503, 504:
 		// upstream errors should probably just 502. client can try later.
+		h.Set("camo-error-message", fmt.Sprintf("Error Fetching Resource: %s", resp.StatusCode))
+		h.Set("expires", "0")
 		http.Error(w, "Error Fetching Resource", http.StatusBadGateway)
 		return
 	default:
+		h.Set("camo-error-message", "Not Found - ")
+		h.Set("expires", "0")
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
 	}
 
-	h := w.Header()
 	p.copyHeaders(&h, &resp.Header, &ValidRespHeaders)
 	// set content type based on parsed content type, not originally supplied
 	h.Set("content-type", responseContentType)
+
 	w.WriteHeader(resp.StatusCode)
 
 	// get a []byte from bufpool, and put it back on defer
