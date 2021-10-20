@@ -1,1 +1,1 @@
-web: go-camo --listen=0.0.0.0:$PORT -k $HMAC_KEY
+web: go-camo --listen-socket=$CAMO_SOCKET -k $HMAC_KEY --max-size=$CAMO_LENGTH_LIMIT --max-size-redirect=$CAMO_LENGTH_LIMIT_REDIRECT
