@@ -243,7 +243,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if p.config.MaxSizeRedirect == "" {
 			http.Error(w, "Content length exceeded", http.StatusNotFound)
 		} else {
-			http.Redirect(w, req, p.config.MaxSizeRedirect, 302)
+			http.Redirect(w, req, p.config.MaxSizeRedirect, http.StatusFound)
 		}
 		return
 	}
@@ -331,7 +331,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	case 500, 502, 503, 504:
 		// upstream errors should probably just 502. client can try later.
-		h.Set("camo-error-message", fmt.Sprintf("Error Fetching Resource: %s", resp.StatusCode))
+		h.Set("camo-error-message", fmt.Sprintf("Error Fetching Resource: %d", resp.StatusCode))
 		h.Set("expires", "0")
 		http.Error(w, "Error Fetching Resource", http.StatusBadGateway)
 		return
