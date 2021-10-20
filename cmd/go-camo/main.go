@@ -145,6 +145,7 @@ func main() {
 		SSLKey              string        `long:"ssl-key" description:"ssl private key (key.pem) path"`
 		SSLCert             string        `long:"ssl-cert" description:"ssl cert (cert.pem) path"`
 		MaxSize             int64         `long:"max-size" description:"Max allowed response size (KB)"`
+		MaxSizeRedirect     string        `long:"max-size-redirect" description:"Location to redirect when max-size exceeded"`
 		ReqTimeout          time.Duration `long:"timeout" default:"4s" description:"Upstream request timeout"`
 		MaxRedirects        int           `long:"max-redirects" default:"3" description:"Maximum number of redirects to follow"`
 		Metrics             bool          `long:"metrics" description:"Enable Prometheus compatible metrics endpoint"`
@@ -287,6 +288,9 @@ func main() {
 	config.RequestTimeout = opts.ReqTimeout
 	config.MaxRedirects = opts.MaxRedirects
 	config.ServerName = ServerName
+
+	// configure MaxSizeRedirect
+	config.MaxSizeRedirect = opts.MaxSizeRedirect
 
 	// configure metrics collection in camo
 	if opts.Metrics {
